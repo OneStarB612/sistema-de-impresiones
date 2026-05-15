@@ -1,13 +1,3 @@
-USE master;
-GO
-
-DROP DATABASE IF EXISTS DeTodo3D;
-GO
-CREATE DATABASE DeTodo3D;
-GO
-
-USE DeTodo3D;
-GO
 
 /*
 como almacenar direccion?
@@ -30,17 +20,18 @@ GO
 */
 
 CREATE TABLE [User] (
-    userID INT IDENTITY(1,1) NOT NULL,
-    [Name] VARCHAR(100) NOT NULL,
-    [Lastname] VARCHAR(100) NOT NULL,
-    
+    UserID INT IDENTITY(1,1) NOT NULL,
+    [Name] VARCHAR(50) NOT NULL,
+    [Lastname] VARCHAR(50) NOT NULL,
+    [Active] BIT NOT NULL
     CONSTRAINT [PK_User] PRIMARY KEY (UserID),
+	CONSTRAINT [DF_User_Active] DEFAULT (0) FOR [Active]
 );
 GO
 
 CREATE TABLE [dbo].[Category](
 	[CategoryID] INT IDENTITY(1,1) NOT NULL,
-	[Name] NVARCHAR(20) NOT NULL,
+	[Name] NVARCHAR(25) NOT NULL,
 	[Description] NVARCHAR(80) NULL,
 	
 	CONSTRAINT [PK_Category] PRIMARY KEY ([CategoryID])
@@ -59,11 +50,11 @@ CREATE TABLE [Product](
 	CONSTRAINT [PK_Product] PRIMARY KEY ([ProductID]),
 	CONSTRAINT [DF_Product_UnitPrice]  DEFAULT (0) FOR [UnitPrice],
 	CONSTRAINT [DF_Product_UnitCost]  DEFAULT (0) FOR [UnitCost],
-	CONSTRAINT [DF_Product_Stock_Default]  DEFAULT (0) FOR [Stock],
+	CONSTRAINT [DF_Product_Stock]  DEFAULT (0) FOR [Stock],
 	CONSTRAINT [DF_Product_Discontinued]  DEFAULT (0) FOR [Discontinued],
 	CONSTRAINT [CK_Product_UnitPrice] CHECK  ([UnitPrice] >= 0),
 	CONSTRAINT [CK_Product_UnitCost] CHECK  ([UnitCost] >= 0),
-	CONSTRAINT [CK_Product_StockT] CHECK  ([Stock] >= 0),
+	CONSTRAINT [CK_Product_Stock] CHECK  ([Stock] >= 0),
 
 	
 	CONSTRAINT [FK_Product_Category] FOREIGN KEY([CategoryID]) REFERENCES [dbo].[Category] ([CategoryID])
@@ -75,10 +66,12 @@ CREATE TABLE [Sale](
 	SaleID INT IDENTITY(1,1) NOT NULL,
 	SaleDate DATETIME2 NOT NULL,
 	UserID INT NOT NULL,
+	Customer VARCHAR(50) NOT NULL,
 	DiscountAmount DECIMAL(18,4) NOT NULL,
 	DiscountPercentage DECIMAL(5,2) NOT NULL,
+	TaxPercentage DECIMAL(5,2) NOT NULL,
 	TaxAmount DECIMAL(18, 4) NOT NULL,
-	CurrencyCode NVARCHAR(3) NOT NULL,
+	CurrencyCode NCHAR(3) NOT NULL,
 	Total DECIMAL(18,4),
 	Observation VARCHAR(150) NULL,
 
@@ -93,7 +86,34 @@ CREATE TABLE [Sale](
 	CONSTRAINT DF_Sale_Total DEFAULT (0) FOR [Total],
 	CONSTRAINT CK_Sale_Total CHECK ([Total] >= 0),
 
-	CONSTRAINT FK_UserID FOREIGN KEY ([UserID]) REFERENCES [dbo].[User] ([userID])
+	CONSTRAINT FK_User FOREIGN KEY ([UserID]) REFERENCES [dbo].[User] ([UserID])
 );
 GO
 
+CREATE TABLE [SaleDetail] (
+	SaleDetailID INT IDENTITY(1,1),
+	SaleID INT NOT NULL,
+	ProductID INT NOT NULL,
+	Quantity INT NOT NULL,
+	UnitPrice DECIMAL(18,4) NOT NULL,
+	DiscountAmount DECIMAL(18,4) NOT NULL,
+	DiscountPercentage DECIMAL(5,2) NOT NULL,
+	TaxPercentage DECIMAL(5,2) NOT NULL,
+	TaxAmount DECIMAL(18,4) NOT NULL,
+	SubTotal DECIMAL(18,4) NOT NULL,
+
+	CONSTRAINT PK_Sale PRIMARY KEY ([SaleDetailID]),
+	CONSTRAINT DF_Sale_DiscountPercentage DEFAULT (0) FOR [DiscountPercentage],
+	CONSTRAINT DF_Sale_DiscountAmount DEFAULT (0) FOR [DiscountAmount],
+	CONSTRAINT DF_Sale_Quantity DEFAULT (0) FOR [Quantity],
+	CONSTRAINT DF_Sale_TaxAmount DEFAULT (0) FOR [TaxAmount],
+	CONSTRAINT DF_Sale_SubTotal DEFAULT (0) FOR [SubTotal],
+	CONSTRAINT CK_Sale_DiscountPercentage CHECK ([DiscountPercentage] >= 0),
+	CONSTRAINT CK_Sale_DiscountAmount CHECK ([DiscountAmount] >= 0),
+	CONSTRAINT CK_Sale_Quantity CHECK ([Quantity] >= 0),
+	CONSTRAINT CK_Sale_TaxAmount CHECK ([TaxAmount] >= 0),
+	CONSTRAINT CK_Sale_SubTotal CHECK ([SubTotal] >= 0),
+
+	CONSTRAINT FK_Sale FOREIGN KEY ([SaleID]) REFERENCES [dbo].[Sale] ([SaleID])
+);
+GO
