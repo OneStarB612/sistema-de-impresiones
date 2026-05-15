@@ -23,7 +23,7 @@ CREATE TABLE [User] (
     UserID INT IDENTITY(1,1) NOT NULL,
     [Name] VARCHAR(50) NOT NULL,
     [Lastname] VARCHAR(50) NOT NULL,
-    [Active] BIT NOT NULL
+    [Active] BIT NOT NULL,
     CONSTRAINT [PK_User] PRIMARY KEY (UserID),
 	CONSTRAINT [DF_User_Active] DEFAULT (0) FOR [Active]
 );
@@ -33,8 +33,10 @@ CREATE TABLE [dbo].[Category](
 	[CategoryID] INT IDENTITY(1,1) NOT NULL,
 	[Name] NVARCHAR(25) NOT NULL,
 	[Description] NVARCHAR(80) NULL,
+	[Active] BIT NOT NULL,
 	
-	CONSTRAINT [PK_Category] PRIMARY KEY ([CategoryID])
+	CONSTRAINT [PK_Category] PRIMARY KEY ([CategoryID]),
+	CONSTRAINT [DF_User_Active] DEFAULT (0) FOR [Active]
  );
  GO
 
@@ -42,6 +44,7 @@ CREATE TABLE [Product](
 	ProductID INT IDENTITY(1,1) NOT NULL,
 	[Name] NVARCHAR(80) NOT NULL,
 	[Description] NVARCHAR(80) NULL,
+	[Active] BIT NOT NULL,
 	CategoryID INT NULL,
 	UnitPrice DECIMAL(12,2) NULL,
 	UnitCost DECIMAL(12,2) NULL,
@@ -49,6 +52,7 @@ CREATE TABLE [Product](
 	Discontinued BIT NOT NULL,
 	
 	CONSTRAINT [PK_Product] PRIMARY KEY ([ProductID]),
+	CONSTRAINT [DF_User_Active] DEFAULT (0) FOR [Active],
 	CONSTRAINT [DF_Product_UnitPrice]  DEFAULT (0) FOR [UnitPrice],
 	CONSTRAINT [DF_Product_UnitCost]  DEFAULT (0) FOR [UnitCost],
 	CONSTRAINT [DF_Product_Stock]  DEFAULT (0) FOR [Stock],
