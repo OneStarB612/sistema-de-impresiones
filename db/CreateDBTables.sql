@@ -1,12 +1,12 @@
 USE master;
 GO
 
-DROP DATABASE IF EXISTS database_name1;
+DROP DATABASE IF EXISTS DeTodo3D;
 GO
-CREATE DATABASE database_name1;
+CREATE DATABASE DeTodo3D;
 GO
 
-USE database_name1;
+USE DeTodo3D;
 GO
 
 /*
@@ -16,7 +16,8 @@ pais > provincia > municipio o partido > localidades
 
 direccion para envios: calle, numero, localidad, provincia codigo postal
 
-direccion para ML: direccion (un campo), provincia o ciudad, localidad
+direccion para ML:
+direccion (un campo) si, provincia o ciudad, localidad si
 */
 /*
 CREATE TABLE [Supplier](
@@ -28,18 +29,27 @@ CREATE TABLE [Supplier](
 GO
 */
 
+CREATE TABLE [User] (
+    userID INT IDENTITY(1,1) NOT NULL,
+    [Name] VARCHAR(100) NOT NULL,
+    [Lastname] VARCHAR(100) NOT NULL,
+    
+    CONSTRAINT [PK_User] PRIMARY KEY (UserID),
+);
+GO
+
 CREATE TABLE [dbo].[Category](
 	[CategoryID] INT IDENTITY(1,1) NOT NULL,
 	[Name] NVARCHAR(20) NOT NULL,
-	[Description] NVARCHAR(150) NULL,
+	[Description] NVARCHAR(80) NULL,
 	
-	CONSTRAINT [PK_Categories] PRIMARY KEY ([CategoryID])
+	CONSTRAINT [PK_Category] PRIMARY KEY ([CategoryID])
  );
  GO
 
 CREATE TABLE [Product](
 	ProductID INT IDENTITY(1,1) NOT NULL,
-	[Name] NVARCHAR(50) NOT NULL,
+	[Name] NVARCHAR(80) NOT NULL,
 	CategoryID INT NULL,
 	UnitPrice DECIMAL(12,2) NULL,
 	UnitCost DECIMAL(12,2) NULL,
@@ -56,8 +66,7 @@ CREATE TABLE [Product](
 	CONSTRAINT [CK_Product_StockT] CHECK  ([Stock] >= 0),
 
 	
-	CONSTRAINT [FK_Product_Category] FOREIGN KEY([CategoryID]) REFERENCES [dbo].[Category] ([CategoryID]),
-	CONSTRAINT [FK_Products_Supplier] FOREIGN KEY([SupplierID]) REFERENCES [dbo].[Supplier] ([SupplierID])
+	CONSTRAINT [FK_Product_Category] FOREIGN KEY([CategoryID]) REFERENCES [dbo].[Category] ([CategoryID])
 
 );
 GO
@@ -65,13 +74,14 @@ GO
 CREATE TABLE [Sale](
 	SaleID INT IDENTITY(1,1) NOT NULL,
 	SaleDate DATETIME2 NOT NULL,
-	Observation VARCHAR(150) NULL,
+	UserID INT NOT NULL,
 	DiscountAmount DECIMAL(18,4) NOT NULL,
 	DiscountPercentage DECIMAL(5,2) NOT NULL,
 	TaxAmount DECIMAL(18, 4) NOT NULL,
 	CurrencyCode NVARCHAR(3) NOT NULL,
 	Total DECIMAL(18,4),
-	
+	Observation VARCHAR(150) NULL,
+
 	CONSTRAINT PK_Sale PRIMARY KEY ([SaleID]),
 	CONSTRAINT DF_Sale_SaleDate DEFAULT sysutcdatetime() FOR [SaleDate],
 	CONSTRAINT DF_Sale_DiscountPercentage DEFAULT (0) FOR [DiscountPercentage],
@@ -83,6 +93,7 @@ CREATE TABLE [Sale](
 	CONSTRAINT DF_Sale_Total DEFAULT (0) FOR [Total],
 	CONSTRAINT CK_Sale_Total CHECK ([Total] >= 0),
 
+	CONSTRAINT FK_UserID FOREIGN KEY ([UserID]) REFERENCES [dbo].[User] ([userID])
 );
 GO
 
