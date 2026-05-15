@@ -41,6 +41,7 @@ CREATE TABLE [dbo].[Category](
 CREATE TABLE [Product](
 	ProductID INT IDENTITY(1,1) NOT NULL,
 	[Name] NVARCHAR(80) NOT NULL,
+	[Description] NVARCHAR(80) NULL,
 	CategoryID INT NULL,
 	UnitPrice DECIMAL(12,2) NULL,
 	UnitCost DECIMAL(12,2) NULL,
