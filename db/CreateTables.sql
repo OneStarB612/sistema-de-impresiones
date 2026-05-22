@@ -37,10 +37,24 @@ CREATE TABLE [dbo].[User] (
     [Name] VARCHAR(50) NOT NULL,
     [Lastname] VARCHAR(50) NOT NULL,
     [Active] BIT NOT NULL,
+
     CONSTRAINT [PK_User] PRIMARY KEY ([UserID]),
-	CONSTRAINT [DF_User_Active] DEFAULT (0) FOR [Active]
+	CONSTRAINT [DF_User_Active] DEFAULT (1) FOR [Active]
 );
 GO
+
+CREATE TABLE [dbo].[Supplier] (
+    [SupplierID] INT IDENTITY(1,1) NOT NULL,
+    [Name] NVARCHAR(100) NOT NULL,
+    [ContactEmail] NVARCHAR(100) NULL,
+    [Active] BIT NOT NULL,
+    --[CreatedAt] DATETIME2(3) NOT NULL,
+    
+    CONSTRAINT [PK_Supplier] PRIMARY KEY ([SupplierID]),
+    CONSTRAINT [UQ_Suppliers_Name] UNIQUE ([Name]),
+	CONSTRAINT [DF_Suppliers_Active] DEFAULT (1) FOR [Active],
+	--CONSTRAINT [DF_Suppliers_CreatedAt] DEFAULT SYSUTCDATETIME()
+);
 
 CREATE TABLE [dbo].[Category](
 	[CategoryID] INT IDENTITY(1,1) NOT NULL,
@@ -53,7 +67,22 @@ CREATE TABLE [dbo].[Category](
  );
  GO
 
-CREATE TABLE [Product](
+ CREATE TABLE [dbo].[Material] (
+    [MaterialID] INT IDENTITY(1,1) NOT NULL,
+    [SKU] NVARCHAR(50) NOT NULL,
+    [MaterialName] NVARCHAR(150) NOT NULL,
+    [UnitMeasure] NVARCHAR(20) NOT NULL, -- e.g., 'kg', 'L', 'g', one table
+    [MinimumStockLevel] DECIMAL(18,4) NOT NULL,
+    [CreatedAt] DATETIME2(3) NOT NULL,
+    
+    CONSTRAINT [PK_Material] PRIMARY KEY CLUSTERED ([MaterialID]),
+    CONSTRAINT [UQ_Material_SKU] UNIQUE ([SKU]),
+    CONSTRAINT [CK_Material_MinStock] CHECK ([MinimumStockLevel] >= (0)),
+	CONSTRAINT [DF_Material_CreatedAt] DEFAULT SYSUTCDATETIME(),
+	CONSTRAINT [DF_Material_MinStock] DEFAULT (0.0000)
+);
+
+CREATE TABLE [dbo].[Product](
 	[ProductID] INT IDENTITY(1,1) NOT NULL,
 	[Name] NVARCHAR(80) NOT NULL,
 	[Description] NVARCHAR(80) NULL,
@@ -80,9 +109,9 @@ CREATE TABLE [Product](
 );
 GO
 
-CREATE TABLE [Sale](
+CREATE TABLE [dbo].[Sale](
 	[SaleID] INT IDENTITY(1,1) NOT NULL,
-	[SaleDate] DATETIME2 NOT NULL,
+	[CreatedAt] DATETIME2(3) NOT NULL,
 	[UserID] INT NOT NULL,
 	[Customer] VARCHAR(50) NOT NULL,
 	[DiscountAmount] DECIMAL(18,4) NOT NULL,
@@ -94,7 +123,7 @@ CREATE TABLE [Sale](
 	[Observation] VARCHAR(150) NULL,
 
 	CONSTRAINT [PK_Sale] PRIMARY KEY ([SaleID]),
-	CONSTRAINT [DF_Sale_SaleDate] DEFAULT sysutcdatetime() FOR [SaleDate],
+	CONSTRAINT [DF_Sale_CreatedAt] DEFAULT sysutcdatetime() FOR [CreatedAt],
 	CONSTRAINT [DF_Sale_DiscountPercentage] DEFAULT (0) FOR [DiscountPercentage],
 	CONSTRAINT [CK_Sale_DiscountPercentage] CHECK ([DiscountPercentage] >= 0),
 	CONSTRAINT [DF_Sale_DiscountAmount] DEFAULT (0) FOR [DiscountAmount],
@@ -108,7 +137,7 @@ CREATE TABLE [Sale](
 );
 GO
 
-CREATE TABLE [SaleDetail] (
+CREATE TABLE [dbo].[SaleDetail] (
 	[SaleDetailID] INT IDENTITY(1,1),
 	[SaleID] INT NOT NULL,
 	[ProductID] INT NOT NULL,
