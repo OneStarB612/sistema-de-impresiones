@@ -21,9 +21,9 @@ CREATE TABLE [dbo].[Country] (
 );
 
 CREATE TABLE [dbo].[GeoDivision] (
-    [GeoDivisionID] INT IDENTITY(1,1) NOT NULL,
+    [GeoDivisionID] BIGINT IDENTITY(1,1) NOT NULL,
     [ParentID] BIGINT REFERENCES [GeoDivision]([GeoDivisionID]) ON DELETE NO ACTION,
-    [ÇountryCode] CHAR(2) NOT NULL REFERENCES [Country](iso_alpha2),
+    [ÇountryCode] CHAR(2) NOT NULL REFERENCES [Country]([ISOAlpha2]),
     [LevelType] VARCHAR(50) NOT NULL, -- 'state', 'province', 'department', 'municipality', 'district'
     [ISOSubDivisionCode] VARCHAR(10), -- e.g., 'US-CA' for California, 'NI-MN' for Managua
     [Name] VARCHAR(150) NOT NULL,
@@ -71,7 +71,7 @@ CREATE TABLE [dbo].[Category](
     [MaterialID] INT IDENTITY(1,1) NOT NULL,
     [SKU] NVARCHAR(50) NOT NULL,
     [MaterialName] NVARCHAR(150) NOT NULL,
-    [UnitMeasure] NVARCHAR(20) NOT NULL, -- e.g., 'kg', 'L', 'g', one table
+    --[UnitMeasure] NVARCHAR(20) NOT NULL, -- e.g., 'kg', 'L', 'g', one table
     [MinimumStockLevel] DECIMAL(18,4) NOT NULL,
     [CreatedAt] DATETIME2(3) NOT NULL,
     
@@ -80,6 +80,38 @@ CREATE TABLE [dbo].[Category](
     CONSTRAINT [CK_Material_MinStock] CHECK ([MinimumStockLevel] >= (0)),
 	CONSTRAINT [DF_Material_CreatedAt] DEFAULT SYSUTCDATETIME(),
 	CONSTRAINT [DF_Material_MinStock] DEFAULT (0.0000)
+);
+
+CREATE TABLE dbo.MaterialInventory (
+    InventoryID INT IDENTITY(1,1) NOT NULL,
+    MaterialID INT NOT NULL,
+    --StorageLocationCode NVARCHAR(50) NOT NULL, -- e.g., 'Aisle-04-Shelf-B'
+    PackageCapacity DECIMAL(18,4) NOT NULL,   -- Amount a single brand-new box holds
+    ClosedPackageCount INT NOT NULL CONSTRAINT DF_MaterialInventory_Closed DEFAULT (0),
+    OpenPackageCount INT NOT NULL CONSTRAINT DF_MaterialInventory_Open DEFAULT (0),
+    RemainingPercentage DECIMAL(5,2) NOT NULL CONSTRAINT DF_MaterialInventory_Percent DEFAULT (100.00),
+    UpdatedAt DATETIME2(3) NOT NULL CONSTRAINT DF_MaterialInventory_UpdatedAt DEFAULT (SYSUTCDATETIME()),
+
+    -- Architectural Requirement: Computed Column applying the explicit mathematical formula
+    -- DRY Principle: Calculated at the database tier so client applications don't repeat logic.
+    CurrentUsableStock AS CAST(
+        (ClosedPackageCount * PackageCapacity) + 
+        CASE 
+            WHEN OpenPackageCount > 0 
+            -- Calculates (OpenBoxesCount - 1) full capacities plus the fraction remaining in the active open box
+            THEN ((OpenPackageCount - 1) * PackageCapacity) + ((RemainingPercentage / 100.00) * PackageCapacity)
+            ELSE 0.0000
+        END 
+        AS DECIMAL(18,4)
+    ),
+
+    CONSTRAINT PK_MaterialInventory PRIMARY KEY (InventoryID),
+    --CONSTRAINT UQ_MaterialInventory_MaterialLocation UNIQUE (MaterialID, StorageLocationCode),
+    CONSTRAINT FK_MaterialInventory_Materials FOREIGN KEY (MaterialID) REFERENCES dbo.Material (MaterialID),
+    CONSTRAINT CK_MaterialInventory_PackageCapacity CHECK (PackageCapacity > 0),
+    CONSTRAINT CK_MaterialInventory_Closed CHECK (ClosedPackageCount >= 0),
+    CONSTRAINT CK_MaterialInventory_Open CHECK (OpenPackageCount >= 0),
+    CONSTRAINT CK_MaterialInventory_Percentage CHECK (RemainingPercentage BETWEEN 0.00 AND 100.00)
 );
 
 CREATE TABLE [dbo].[Product](
@@ -138,7 +170,7 @@ CREATE TABLE [dbo].[Sale](
 GO
 
 CREATE TABLE [dbo].[SaleDetail] (
-	[SaleDetailID] INT IDENTITY(1,1),
+	[SaleDetailID] BIGINT IDENTITY(1,1),
 	[SaleID] INT NOT NULL,
 	[ProductID] INT NOT NULL,
 	[Quantity] INT NOT NULL,
