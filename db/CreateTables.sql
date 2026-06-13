@@ -60,10 +60,10 @@ CREATE TABLE [dbo].[Category](
 	[CategoryID] INT IDENTITY(1,1) NOT NULL,
 	[Name] NVARCHAR(25) NOT NULL,
 	[Description] NVARCHAR(80) NULL,
-	[Active] BIT NOT NULL,
+	[Active] BIT NOT NULL DEFAULT (1),
 	
 	CONSTRAINT [PK_Category] PRIMARY KEY ([CategoryID]),
-	CONSTRAINT [DF_User_Active] DEFAULT (0) FOR [Active]
+	--CONSTRAINT [DF_User_Active] DEFAULT (1) FOR [Active]
  );
  GO
 
@@ -118,19 +118,19 @@ CREATE TABLE [dbo].[Product](
 	[ProductID] INT IDENTITY(1,1) NOT NULL,
 	[Name] NVARCHAR(80) NOT NULL,
 	[Description] NVARCHAR(80) NULL,
-	[Active] BIT NOT NULL,
+	[Active] BIT NOT NULL DEFAULT (1),
 	[CategoryID] INT NULL,
-	[UnitPrice] DECIMAL(12,2) NULL,
-	[UnitCost] DECIMAL(12,2) NULL,
-	[Stock] INT NULL,
-	[Discontinued] BIT NOT NULL,
+	[UnitPrice] DECIMAL(12,2) NULL DEFAULT (1),
+	[UnitCost] DECIMAL(12,2) NULL DEFAULT (1),
+	[Stock] INT NULL DEFAULT (0),
+	[Discontinued] BIT NOT NULL DEFAULT (0),
 	
 	CONSTRAINT [PK_Product] PRIMARY KEY ([ProductID]),
-	CONSTRAINT [DF_User_Active] DEFAULT (0) FOR [Active],
-	CONSTRAINT [DF_Product_UnitPrice]  DEFAULT (0) FOR [UnitPrice],
-	CONSTRAINT [DF_Product_UnitCost]  DEFAULT (0) FOR [UnitCost],
-	CONSTRAINT [DF_Product_Stock]  DEFAULT (0) FOR [Stock],
-	CONSTRAINT [DF_Product_Discontinued]  DEFAULT (0) FOR [Discontinued],
+	--CONSTRAINT [DF_User_Active] DEFAULT (1) FOR [Active],
+	--CONSTRAINT [DF_Product_UnitPrice]  DEFAULT (0) FOR [UnitPrice],
+	--CONSTRAINT [DF_Product_UnitCost]  DEFAULT (0) FOR [UnitCost],
+	--CONSTRAINT [DF_Product_Stock]  DEFAULT (0) FOR [Stock],
+	--CONSTRAINT [DF_Product_Discontinued]  DEFAULT (0) FOR [Discontinued],
 	CONSTRAINT [CK_Product_UnitPrice] CHECK  ([UnitPrice] >= 0),
 	CONSTRAINT [CK_Product_UnitCost] CHECK  ([UnitCost] >= 0),
 	CONSTRAINT [CK_Product_Stock] CHECK  ([Stock] >= 0),

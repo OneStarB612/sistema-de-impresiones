@@ -1,3 +1,7 @@
+using Infrastructure.Data;
+using Infrastructure.Repositories;
+
+
 namespace SistemaTodo3D
 {
     public class Program
@@ -6,10 +10,8 @@ namespace SistemaTodo3D
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            builder.Services.AddSingleton(
-                new SqlConnectionFactory(
-                    builder.Configuration.GetConnectionString("DefaultConnection")!
-                    ));
+            builder.Services.AddScoped<SqlConnectionFactory>();
+            builder.Services.AddScoped<ProductRepository>();
 
             // Add services to the container.
             builder.Services.AddControllersWithViews();

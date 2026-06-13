@@ -11,7 +11,7 @@ namespace Domain.Entities
         public int CategoryID { get; set; }
         public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
-        public bool Active { get; set; } = false; // Default 0
+        public bool Active { get; set; } = true;
 
         //public void LoadFromDataReader(SqlDataReader reader)
         //{

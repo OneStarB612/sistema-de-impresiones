@@ -1,0 +1,32 @@
+﻿@*
+    For more information on enabling MVC for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
+*@
+@{
+}
+@model List<Domain.Entities.Product>
+
+<h2>Productos</h2>
+
+<table class="table table-bordered">
+    <thead>
+        <tr>
+            <th scope="col">ID</th>
+            <th scope="col">Nombre</th>
+            <th scope="col">Descripción</th>
+            <th scope="col">Precio</th>
+            <th scope="col">Stock</th>
+        </tr>
+
+    <tbody>
+            @foreach (var producto in Model)
+            {
+            <tr>
+                <td>@producto.ProductID</td>
+                <td>@producto.Name</td>
+                <td>@producto.Description</td>
+                <td>@producto.UnitPrice</td>
+                <td>@producto.Stock</td>
+            </tr>
+            }
+    </tbody>
+</table>
