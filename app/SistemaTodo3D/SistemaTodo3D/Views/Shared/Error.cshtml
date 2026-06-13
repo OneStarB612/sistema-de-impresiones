@@ -1,0 +1,32 @@
+﻿@model ErrorViewModel
+@{
+    ViewData["Title"] = "Error";
+}
+
+<div class="container">
+    <div class="error-page">
+        <div class="error-code">500</div>
+        <h2>Algo salió mal</h2>
+        <p>Ocurrió un error inesperado mientras procesábamos tu solicitud.</p>
+
+        @if (Model.ShowRequestId)
+        {
+            <div class="d-flex justify-content-center mb-4">
+                <div class="bg-soft-danger px-4 py-2 rounded-3">
+                    <small class="text-muted">
+                        <strong>Request ID:</strong> <code>@Model.RequestId</code>
+                    </small>
+                </div>
+            </div>
+        }
+
+        <div class="d-flex justify-content-center gap-3">
+            <a asp-controller="Home" asp-action="Index" class="btn btn-primary-modern btn-modern">
+                <i class="bi bi-house-fill me-2"></i>Volver al Inicio
+            </a>
+            <button class="btn btn-outline-secondary btn-modern" onclick="location.reload()">
+                <i class="bi bi-arrow-clockwise me-2"></i>Reintentar
+            </button>
+        </div>
+    </div>
+</div>
