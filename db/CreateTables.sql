@@ -138,7 +138,7 @@ CREATE TABLE [dbo].[Product](
 );
 GO
 
-CREATE TABLE [Status] (
+CREATE TABLE dbo.[Status] (
     [StatusID] INT IDENTITY(1,1) NOT NULL,
     [Name] VARCHAR(50) NOT NULL,
     [Active] BIT NOT NULL CONSTRAINT [DF_Status_Active] DEFAULT (1) FOR [Active],
@@ -149,7 +149,7 @@ CREATE TABLE [Status] (
 );
 
 -- ISO 4217 Currency Definition Table
-CREATE TABLE Currency (
+CREATE TABLE dbo.Currency (
     ISOAlpha3 CHAR(3) NOT NULL, -- Alpha-3 code (e.g., 'USD', 'EUR')
     NumericCode CHAR(3) NOT NULL, -- Numeric code (e.g., '840')
     [Name] NVARCHAR(50) NOT NULL,
@@ -164,7 +164,7 @@ CREATE TABLE Currency (
 GO
 
 -- Payment Methods Definition Table
-CREATE TABLE PaymentMethod (
+CREATE TABLE dbo.PaymentMethod (
     PaymentMethodID INT IDENTITY(1,1) NOT NULL,
     [Type] NVARCHAR(20) NOT NULL, -- Unique identifier (e.g., 'CREDIT_CARD', 'CASH')
     [Name] NVARCHAR(50) NOT NULL,
@@ -246,9 +246,44 @@ CREATE TABLE dbo.SalePayment (
     
     CONSTRAINT PK_SalePayment PRIMARY KEY CLUSTERED (SalePaymentID),
     CONSTRAINT FK_SalePayment_Sale FOREIGN KEY ([SaleID]) REFERENCES Sale([SaleID]),
-    CONSTRAINT FK_SalePayment_method FOREIGN KEY (PaymentMethodID) REFERENCES PaymentMethod(PaymentMethodID),
-    CONSTRAINT FK_SalePayment_currency FOREIGN KEY (CurrencyID) REFERENCES Currency(ISOAlpha3),
-    CONSTRAINT CHK_SalePayment_amt CHECK (AmountInPaymentCurrency > 0)
+    CONSTRAINT FK_SalePayment_Method FOREIGN KEY (PaymentMethodID) REFERENCES PaymentMethod(PaymentMethodID),
+    CONSTRAINT FK_SalePayment_Currency FOREIGN KEY (CurrencyID) REFERENCES Currency(ISOAlpha3),
+    CONSTRAINT CHK_SalePayment_AMT CHECK (AmountInPaymentCurrency > 0)
 );
 
 -- CREATE NONCLUSTERED INDEX IX_sales_payments_header ON SalePayment([SaleID]);
+
+CREATE TABLE dbo.Shipment (
+    ShipmentID BIGINT IDENTITY(1,1) NOT NULL,
+    [SaleID] BIGINT NOT NULL,
+    StatusID INT NOT NULL, 
+    CostResponsibility VARCHAR(15) NOT NULL, 
+    CurrencyCode CHAR(3) NOT NULL,
+    ExchangeRateUsed DECIMAL(18, 6) NOT NULL CONSTRAINT DF_Shipment_Rate DEFAULT 1.000000,
+    ActualCarrierCost DECIMAL(18, 4) NOT NULL CONSTRAINT DF_Shipment_Cost DEFAULT 0.0000, 
+    CustomerShippingFee DECIMAL(18, 4) NOT NULL CONSTRAINT DF_Shipment_Fee DEFAULT 0.0000,
+    ShippedAt DATETIME2(3) NULL,
+    CreatedAt DATETIME2(3) NOT NULL CONSTRAINT DF_PaymentMethods_CreatedAt DEFAULT (SYSUTCDATETIME()),
+    
+    CONSTRAINT PK_Shipment PRIMARY KEY (ShipmentID),
+    CONSTRAINT FK_Shipment_Sale FOREIGN KEY ([SaleID]) REFERENCES dbo.Sale([SaleID]),
+    CONSTRAINT FK_Shipment_Currency FOREIGN KEY (CurrencyCode) REFERENCES dbo.Currency(ISOAlpha3),
+    CONSTRAINT CHK_Shipment_Responsibility CHECK (CostResponsibility IN ('CUSTOMER', 'COMPANY'))
+);
+
+--CREATE NONCLUSTERED INDEX IX_shipments_sales_header ON Shipment([SaleID]);
+
+
+CREATE TABLE ShipmentItem (
+    ShipmentItemID BIGINT IDENTITY(1,1) NOT NULL,
+    ShipmentID BIGINT NOT NULL,
+    [SaleDetailID] BIGINT NOT NULL,
+    quantity_shipped INT NOT NULL,
+    
+    CONSTRAINT PK_ShipmentItem PRIMARY KEY CLUSTERED (ShipmentItemID),
+    CONSTRAINT FK_ShipmentItem_Shipment FOREIGN KEY (ShipmentID) REFERENCES Shipment(ShipmentID) ON DELETE CASCADE,
+    CONSTRAINT FK_ShipmentItem_Detail FOREIGN KEY ([SaleDetailID]) REFERENCES dbo.[SaleDetail]([SaleDetailID]),
+    CONSTRAINT CHK_ShipmentItem_Qty CHECK (quantity_shipped > 0)
+);
+
+--CREATE NONCLUSTERED INDEX IX_shipment_items_shipment ON ShipmentItem(ShipmentID);
