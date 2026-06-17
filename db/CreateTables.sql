@@ -1,14 +1,4 @@
-
-
-/*
-CREATE TABLE [Supplier](
-	SupplierID INT IDENTITY(1,1) NOT NULL,
-	[Name] NVARCHAR(30) NOT NULL,
-	--direccion?
-	CONSTRAINT [PK_Supplier] PRIMARY KEY (SupplierID)
-);
-GO
-*/
+USE DeTodo3D;
 
 CREATE TABLE [dbo].[Country] (
     [ISOAlpha2] CHAR(2) NOT NULL, -- e.g., 'US', 'FR', 'NI'
@@ -19,27 +9,42 @@ CREATE TABLE [dbo].[Country] (
 
 	CONSTRAINT [PK_Country] PRIMARY KEY ([ISOAlpha2])
 );
+GO
+
+CREATE TABLE dbo.GeoType (
+    GeoTypeID INT IDENTITY(1,1) NOT NULL,
+    -- ('region', 'state', 'province', 'department', 'county', 'municipality', 'city', 'district', 'autonomous region')
+    [Name] NVARCHAR(150) NOT NULL,
+
+    CONSTRAINT [PK_GeoType] PRIMARY KEY (GeoTypeID),
+);
+GO
 
 CREATE TABLE [dbo].[GeoDivision] (
     [GeoDivisionID] BIGINT IDENTITY(1,1) NOT NULL,
     [ParentID] BIGINT REFERENCES [GeoDivision]([GeoDivisionID]) ON DELETE NO ACTION,
     [ÇountryCode] CHAR(2) NOT NULL REFERENCES [Country]([ISOAlpha2]),
-    [LevelType] VARCHAR(50) NOT NULL, -- 'state', 'province', 'department', 'municipality', 'district'
+    [GeoTypeID] INT NOT NULL,
     [ISOSubDivisionCode] VARCHAR(10), -- e.g., 'US-CA' for California, 'NI-MN' for Managua
-    [Name] VARCHAR(150) NOT NULL,
+    [Name] NVARCHAR(150) NOT NULL,
     
-    CONSTRAINT [CK_LevelType] CHECK (LevelType IN ('region', 'state', 'province', 'department', 'county', 'municipality', 'city', 'district')),
 	CONSTRAINT [PK_GeoDivisionID] PRIMARY KEY ([GeoDivisionID]),
+    CONSTRAINT FK_GeoType FOREIGN KEY ([GeoTypeID]) REFERENCES dbo.GeoType(GeoTypeID)
 );
+GO
+
+
 
 CREATE TABLE [dbo].[User] (
-    [UserID] INT IDENTITY(1,1) NOT NULL,
-    [Name] VARCHAR(50) NOT NULL,
-    [Lastname] VARCHAR(50) NOT NULL,
-    [Active] BIT NOT NULL,
-
-    CONSTRAINT [PK_User] PRIMARY KEY ([UserID]),
-	CONSTRAINT [DF_User_Active] DEFAULT (1) FOR [Active]
+    UserID INT IDENTITY(1,1) NOT NULL,
+    Username NVARCHAR(150) NOT NULL,
+    Email NVARCHAR(256) NOT NULL,
+    PasswordHash NVARCHAR(100) NOT NULL, -- Store salted hashes only
+    [Active] BIT NOT NULL CONSTRAINT DF_Users_Active DEFAULT (1),
+    CreatedAt DATETIME2(3) NOT NULL CONSTRAINT DF_Users_CreatedAt DEFAULT (SYSUTCDATETIME()),
+    CONSTRAINT PK_Users PRIMARY KEY CLUSTERED (UserId),
+    CONSTRAINT UQ_Users_Username UNIQUE (Username),
+    CONSTRAINT UQ_Users_Email UNIQUE (Email)
 );
 GO
 
@@ -47,23 +52,21 @@ CREATE TABLE [dbo].[Supplier] (
     [SupplierID] INT IDENTITY(1,1) NOT NULL,
     [Name] NVARCHAR(100) NOT NULL,
     [ContactEmail] NVARCHAR(100) NULL,
-    [Active] BIT NOT NULL,
-    --[CreatedAt] DATETIME2(3) NOT NULL,
+    [Active] BIT NOT NULL CONSTRAINT [DF_Suppliers_Active] DEFAULT (1) FOR [Active],
+    
     
     CONSTRAINT [PK_Supplier] PRIMARY KEY ([SupplierID]),
     CONSTRAINT [UQ_Suppliers_Name] UNIQUE ([Name]),
-	CONSTRAINT [DF_Suppliers_Active] DEFAULT (1) FOR [Active],
-	--CONSTRAINT [DF_Suppliers_CreatedAt] DEFAULT SYSUTCDATETIME()
 );
 
 CREATE TABLE [dbo].[Category](
 	[CategoryID] INT IDENTITY(1,1) NOT NULL,
 	[Name] NVARCHAR(25) NOT NULL,
 	[Description] NVARCHAR(80) NULL,
-	[Active] BIT NOT NULL DEFAULT (1),
+	[Active] BIT NOT NULL CONSTRAINT [DF_User_Active] DEFAULT (1) FOR [Active],
 	
 	CONSTRAINT [PK_Category] PRIMARY KEY ([CategoryID]),
-	--CONSTRAINT [DF_User_Active] DEFAULT (1) FOR [Active]
+	
  );
  GO
 
@@ -71,7 +74,6 @@ CREATE TABLE [dbo].[Category](
     [MaterialID] INT IDENTITY(1,1) NOT NULL,
     [SKU] NVARCHAR(50) NOT NULL,
     [MaterialName] NVARCHAR(150) NOT NULL,
-    --[UnitMeasure] NVARCHAR(20) NOT NULL, -- e.g., 'kg', 'L', 'g', one table
     [MinimumStockLevel] DECIMAL(18,4) NOT NULL,
     [CreatedAt] DATETIME2(3) NOT NULL,
     
@@ -118,19 +120,14 @@ CREATE TABLE [dbo].[Product](
 	[ProductID] INT IDENTITY(1,1) NOT NULL,
 	[Name] NVARCHAR(80) NOT NULL,
 	[Description] NVARCHAR(80) NULL,
-	[Active] BIT NOT NULL DEFAULT (1),
+	[Active] BIT NOT NULL CONSTRAINT [DF_Product_Active] DEFAULT (1) FOR [Active],
 	[CategoryID] INT NULL,
-	[UnitPrice] DECIMAL(12,2) NULL DEFAULT (1),
-	[UnitCost] DECIMAL(12,2) NULL DEFAULT (1),
-	[Stock] INT NULL DEFAULT (0),
-	[Discontinued] BIT NOT NULL DEFAULT (0),
+	[UnitPrice] DECIMAL(12,2) NULL CONSTRAINT [DF_Product_UnitPrice]  DEFAULT (0) FOR [UnitPrice],
+	[UnitCost] DECIMAL(12,2) NULL CONSTRAINT [DF_Product_UnitCost]  DEFAULT (0) FOR [UnitCost],
+	[Stock] INT NULL CONSTRAINT [DF_Product_Stock]  DEFAULT (0) FOR [Stock],
+	[Discontinued] BIT NOT NULL CONSTRAINT [DF_Product_Discontinued]  DEFAULT (0) FOR [Discontinued],
 	
 	CONSTRAINT [PK_Product] PRIMARY KEY ([ProductID]),
-	--CONSTRAINT [DF_User_Active] DEFAULT (1) FOR [Active],
-	--CONSTRAINT [DF_Product_UnitPrice]  DEFAULT (0) FOR [UnitPrice],
-	--CONSTRAINT [DF_Product_UnitCost]  DEFAULT (0) FOR [UnitCost],
-	--CONSTRAINT [DF_Product_Stock]  DEFAULT (0) FOR [Stock],
-	--CONSTRAINT [DF_Product_Discontinued]  DEFAULT (0) FOR [Discontinued],
 	CONSTRAINT [CK_Product_UnitPrice] CHECK  ([UnitPrice] >= 0),
 	CONSTRAINT [CK_Product_UnitCost] CHECK  ([UnitCost] >= 0),
 	CONSTRAINT [CK_Product_Stock] CHECK  ([Stock] >= 0),
@@ -141,8 +138,47 @@ CREATE TABLE [dbo].[Product](
 );
 GO
 
+CREATE TABLE [Status] (
+    [StatusID] INT IDENTITY(1,1) NOT NULL,
+    [Name] VARCHAR(50) NOT NULL,
+    [Active] BIT NOT NULL CONSTRAINT [DF_Status_Active] DEFAULT (1) FOR [Active],
+    
+    CONSTRAINT PK_Status PRIMARY KEY  ([StatusID]),
+    CONSTRAINT UQ_Status_Name  UNIQUE([Name])
+
+);
+
+-- ISO 4217 Currency Definition Table
+CREATE TABLE Currency (
+    ISOAlpha3 CHAR(3) NOT NULL, -- Alpha-3 code (e.g., 'USD', 'EUR')
+    NumericCode CHAR(3) NOT NULL, -- Numeric code (e.g., '840')
+    [Name] NVARCHAR(50) NOT NULL,
+    [Symbol] NVARCHAR(10) NOT NULL,
+    FractionalDigits INT NOT NULL CONSTRAINT DF_Currency_Digits DEFAULT 2,
+    [Active] BIT NOT NULL CONSTRAINT DF_Currency_Active DEFAULT 1,
+    CreatedAt DATETIME2(3) NOT NULL CONSTRAINT DF_Currency_CreatedAt DEFAULT (SYSUTCDATETIME()),
+    
+    CONSTRAINT PK_Currency PRIMARY KEY (ISOAlpha3),
+    CONSTRAINT UQ_Currency_Numeric UNIQUE (NumericCode)
+);
+GO
+
+-- Payment Methods Definition Table
+CREATE TABLE PaymentMethod (
+    PaymentMethodID INT IDENTITY(1,1) NOT NULL,
+    [Type] NVARCHAR(20) NOT NULL, -- Unique identifier (e.g., 'CREDIT_CARD', 'CASH')
+    [Name] NVARCHAR(50) NOT NULL,
+    [Active] BIT NOT NULL CONSTRAINT DF_Currency_Active DEFAULT 1,
+    RequiresReconciliation BIT NOT NULL CONSTRAINT DF_PaymentMethods_Reconciliation DEFAULT 0,
+    CreatedAt DATETIME2(3) NOT NULL CONSTRAINT DF_PaymentMethods_CreatedAt DEFAULT (SYSUTCDATETIME()),
+    
+    CONSTRAINT PK_PaymentMethod PRIMARY KEY (PaymentMethodID), 
+    CONSTRAINT UQ_PaymentMethod_Type UNIQUE([Type])
+);
+GO
+
 CREATE TABLE [dbo].[Sale](
-	[SaleID] INT IDENTITY(1,1) NOT NULL,
+	[SaleID] BIGINT IDENTITY(1,1) NOT NULL,
 	[CreatedAt] DATETIME2(3) NOT NULL,
 	[UserID] INT NOT NULL,
 	[Customer] VARCHAR(50) NOT NULL,
@@ -171,7 +207,7 @@ GO
 
 CREATE TABLE [dbo].[SaleDetail] (
 	[SaleDetailID] BIGINT IDENTITY(1,1),
-	[SaleID] INT NOT NULL,
+	[SaleID] BIGINT NOT NULL,
 	[ProductID] INT NOT NULL,
 	[Quantity] INT NOT NULL,
 	[UnitPrice] DECIMAL(18,4) NOT NULL,
@@ -196,3 +232,23 @@ CREATE TABLE [dbo].[SaleDetail] (
 	CONSTRAINT [FK_Sale] FOREIGN KEY ([SaleID]) REFERENCES [dbo].[Sale] ([SaleID])
 );
 GO
+
+CREATE TABLE dbo.SalePayment (
+    SalePaymentID BIGINT IDENTITY(1,1) NOT NULL,
+    [SaleID] BIGINT NOT NULL,
+    PaymentMethodID INT NOT NULL,
+    CurrencyID CHAR(3) NOT NULL,
+    ExchangeRateUsed DECIMAL(18, 6) NOT NULL CONSTRAINT DF_sales_payments_rate DEFAULT 1.000000,
+    AmountInPaymentCurrency DECIMAL(18, 4) NOT NULL, 
+    AmountInSaleCurrency DECIMAL(18, 4) NOT NULL,  
+    PaymentDate DATETIME2(3) NOT NULL CONSTRAINT DF_SalePayment_PaymentDate DEFAULT (SYSUTCDATETIME()),
+    --transaction_reference NVARCHAR(100) NULL,
+    
+    CONSTRAINT PK_SalePayment PRIMARY KEY CLUSTERED (SalePaymentID),
+    CONSTRAINT FK_SalePayment_Sale FOREIGN KEY ([SaleID]) REFERENCES Sale([SaleID]),
+    CONSTRAINT FK_SalePayment_method FOREIGN KEY (PaymentMethodID) REFERENCES PaymentMethod(PaymentMethodID),
+    CONSTRAINT FK_SalePayment_currency FOREIGN KEY (CurrencyID) REFERENCES Currency(ISOAlpha3),
+    CONSTRAINT CHK_SalePayment_amt CHECK (AmountInPaymentCurrency > 0)
+);
+
+-- CREATE NONCLUSTERED INDEX IX_sales_payments_header ON SalePayment([SaleID]);
