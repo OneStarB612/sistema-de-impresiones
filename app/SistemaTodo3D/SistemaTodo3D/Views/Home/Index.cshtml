@@ -1,8 +1,152 @@
 ﻿@{
-    ViewData["Title"] = "Home Page";
+    ViewData["Title"] = "Inicio";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
-</div>
+<!-- Hero Section -->
+<section class="hero-section">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-7">
+                <h1 class="hero-title animate-fade-in">
+                    Sistema de Gestión<br>
+                    <span class="highlight">Impresión 3D</span>
+                </h1>
+                <p class="hero-subtitle animate-fade-in-delay-1">
+                    Plataforma integral para la administración de productos, materiales e inventario
+                    de tu taller de impresión 3D. Controla costos, stock y producción desde un solo lugar.
+                </p>
+                <div class="d-flex flex-wrap gap-3 animate-fade-in-delay-2">
+                    <a asp-controller="Product" asp-action="Index" class="btn btn-primary-modern btn-modern">
+                        <i class="bi bi-box-seam-fill me-2"></i>Ver Productos
+                    </a>
+                    <a href="#" class="btn btn-outline-modern btn-modern">
+                        <i class="bi bi-info-circle me-2"></i>Más Información
+                    </a>
+                </div>
+                <div class="hero-stats animate-fade-in-delay-3">
+                    <div>
+                        <div class="hero-stat-value" id="productCount">0</div>
+                        <div class="hero-stat-label">Productos</div>
+                    </div>
+                    <div>
+                        <div class="hero-stat-value" id="activeCount">0</div>
+                        <div class="hero-stat-label">Activos</div>
+                    </div>
+                    <div>
+                        <div class="hero-stat-value" id="lowStockCount">0</div>
+                        <div class="hero-stat-label">Stock Bajo</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Features Section -->
+<section class="py-5">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="section-title">¿Qué puedes hacer?</h2>
+            <p class="section-subtitle">Módulos principales del sistema de impresión 3D</p>
+        </div>
+        <div class="row g-4">
+            <div class="col-md-6 col-lg-3">
+                <div class="card card-modern h-100">
+                    <div class="card-body">
+                        <div class="card-icon" style="background: linear-gradient(135deg, #3b82f6, #2563eb);">
+                            <i class="bi bi-box-seam-fill"></i>
+                        </div>
+                        <h5 class="card-title">Productos</h5>
+                        <p class="card-text">Gestiona el catálogo de productos con precios, costos y control de stock en tiempo real.</p>
+                        <a asp-controller="Product" asp-action="Index" class="btn btn-sm btn-outline-primary mt-2">
+                            Ir a Productos <i class="bi bi-arrow-right ms-1"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-3">
+                <div class="card card-modern h-100">
+                    <div class="card-body">
+                        <div class="card-icon" style="background: linear-gradient(135deg, #10b981, #059669);">
+                            <i class="bi bi-boxes"></i>
+                        </div>
+                        <h5 class="card-title">Materiales</h5>
+                        <p class="card-text">Controla inventario de filamentos y materiales con seguimiento por lotes y paquetes.</p>
+                        <a href="#" class="btn btn-sm btn-outline-success mt-2 disabled">
+                            Próximamente <i class="bi bi-clock ms-1"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-3">
+                <div class="card card-modern h-100">
+                    <div class="card-body">
+                        <div class="card-icon" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
+                            <i class="bi bi-truck"></i>
+                        </div>
+                        <h5 class="card-title">Proveedores</h5>
+                        <p class="card-text">Administra proveedores y contactos para mantener tu cadena de suministro activa.</p>
+                        <a href="#" class="btn btn-sm btn-outline-warning mt-2 disabled">
+                            Próximamente <i class="bi bi-clock ms-1"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-3">
+                <div class="card card-modern h-100">
+                    <div class="card-body">
+                        <div class="card-icon" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed);">
+                            <i class="bi bi-graph-up-arrow"></i>
+                        </div>
+                        <h5 class="card-title">Reportes</h5>
+                        <p class="card-text">Visualiza métricas de rentabilidad, márgenes y rendimiento del taller.</p>
+                        <a href="#" class="btn btn-sm btn-outline-secondary mt-2 disabled">
+                            Próximamente <i class="bi bi-clock ms-1"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA Section -->
+<section class="py-5" style="background: var(--gray-100);">
+    <div class="container text-center">
+        <h2 class="section-title">¿Listo para optimizar tu taller?</h2>
+        <p class="section-subtitle mb-4">Comienza gestionando tus productos de manera eficiente.</p>
+        <a asp-controller="Product" asp-action="Index" class="btn btn-primary-modern btn-modern btn-lg">
+            <i class="bi bi-box-seam-fill me-2"></i>Ir al Catálogo de Productos
+        </a>
+    </div>
+</section>
+
+@section Scripts {
+    <script>
+        fetch('/Product/Index')
+            .then(r => r.text())
+            .then(html => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const rows = doc.querySelectorAll('table tbody tr');
+                document.getElementById('productCount').textContent = rows.length;
+
+                let active = 0, lowStock = 0;
+                rows.forEach(row => {
+                    const cells = row.querySelectorAll('td');
+                    if (cells.length > 4) {
+                        const stock = parseInt(cells[4].textContent.trim());
+                        if (stock > 0) active++;
+                        if (stock < 10) lowStock++;
+                    }
+                });
+                document.getElementById('activeCount').textContent = active;
+                document.getElementById('lowStockCount').textContent = lowStock;
+            })
+            .catch(() => {
+                document.getElementById('productCount').textContent = '--';
+                document.getElementById('activeCount').textContent = '--';
+                document.getElementById('lowStockCount').textContent = '--';
+            });
+    </script>
+}
