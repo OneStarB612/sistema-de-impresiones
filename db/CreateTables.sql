@@ -11,12 +11,12 @@ CREATE TABLE [dbo].[Country] (
 );
 GO
 
-CREATE TABLE dbo.GeoType (
-    GeoTypeID INT IDENTITY(1,1) NOT NULL,
+CREATE TABLE dbo.GeoLevel (
+    GeoLevelID INT IDENTITY(1,1) NOT NULL,
     -- ('region', 'state', 'province', 'department', 'county', 'municipality', 'city', 'district', 'autonomous region')
     [Name] NVARCHAR(150) NOT NULL,
 
-    CONSTRAINT [PK_GeoType] PRIMARY KEY (GeoTypeID),
+    CONSTRAINT [PK_GeoType] PRIMARY KEY (GeoLevelID),
 );
 GO
 
@@ -24,12 +24,12 @@ CREATE TABLE [dbo].[GeoDivision] (
     [GeoDivisionID] BIGINT IDENTITY(1,1) NOT NULL,
     [ParentID] BIGINT REFERENCES [GeoDivision]([GeoDivisionID]) ON DELETE NO ACTION,
     [ÇountryCode] CHAR(2) NOT NULL REFERENCES [Country]([ISOAlpha2]),
-    [GeoTypeID] INT NOT NULL,
+    [GeoLevelID] INT NOT NULL,
     [ISOSubDivisionCode] VARCHAR(10), -- e.g., 'US-CA' for California, 'NI-MN' for Managua
     [Name] NVARCHAR(150) NOT NULL,
     
 	CONSTRAINT [PK_GeoDivisionID] PRIMARY KEY ([GeoDivisionID]),
-    CONSTRAINT FK_GeoType FOREIGN KEY ([GeoTypeID]) REFERENCES dbo.GeoType(GeoTypeID)
+    CONSTRAINT FK_GeoLevel FOREIGN KEY ([GeoLevelID]) REFERENCES dbo.GeoLevel(GeoLevelID)
 );
 GO
 
@@ -37,15 +37,107 @@ GO
 
 CREATE TABLE [dbo].[User] (
     UserID INT IDENTITY(1,1) NOT NULL,
-    Username NVARCHAR(150) NOT NULL,
+    UserName NVARCHAR(150) NOT NULL,
     Email NVARCHAR(256) NOT NULL,
-    PasswordHash NVARCHAR(100) NOT NULL, -- Store salted hashes only
+    PasswordHash NVARCHAR(256) NOT NULL, -- Store salted hashes only
     [Active] BIT NOT NULL CONSTRAINT DF_Users_Active DEFAULT (1),
     CreatedAt DATETIME2(3) NOT NULL CONSTRAINT DF_Users_CreatedAt DEFAULT (SYSUTCDATETIME()),
     CONSTRAINT PK_Users PRIMARY KEY CLUSTERED (UserId),
     CONSTRAINT UQ_Users_Username UNIQUE (Username),
     CONSTRAINT UQ_Users_Email UNIQUE (Email)
 );
+GO
+
+-- 1. Insert User
+INSERT INTO dbo.[User] (UserName, Email, PasswordHash) VALUES 
+('Administrador', 'admincuenta@correo.com', '$2y$10$5fJtigakR1tWM2iw0QDTl.h9rrWFzMZjdmL4AWb2HdB81QN3iSUSi'),
+('Empleado1', 'empleadocuenta@correo.com', '$2y$10$KMduVkfbTIzVTOpbhlywTe6nfnmABGJpIn4BtL7XN3QSV4C7MCvny');
+
+CREATE TABLE dbo.Roles (
+    RoleID INT IDENTITY(1,1) NOT NULL,
+    [Name] NVARCHAR(100) NOT NULL,
+    [Description] NVARCHAR(256) NULL,
+    CONSTRAINT PK_Roles PRIMARY KEY CLUSTERED (RoleID),
+    CONSTRAINT UQ_Roles_Name UNIQUE (Name)
+);
+GO
+
+-- Junction table for User-Role relationship (Many-to-Many)
+CREATE TABLE dbo.UserRoles (
+    UserID INT NOT NULL,
+    RoleID INT NOT NULL,
+    CONSTRAINT PK_UserRoles PRIMARY KEY CLUSTERED (UserId, RoleID),
+    CONSTRAINT FK_UserRoles_Users FOREIGN KEY (UserID) REFERENCES dbo.[User] (UserID) ON DELETE CASCADE,
+    CONSTRAINT FK_UserRoles_Roles FOREIGN KEY (RoleID) REFERENCES dbo.Roles (RoleID) ON DELETE CASCADE
+);
+CREATE NONCLUSTERED INDEX IX_UserRoles_RoleId ON dbo.UserRoles(RoleID);
+GO
+
+INSERT INTO dbo.UserRoles (UserID, RoleID)
+VALUES (1,1),
+(2,2);
+
+
+CREATE TABLE dbo.Claim (
+    ClaimID INT IDENTITY(1,1) NOT NULL,
+    ClaimType NVARCHAR(250) NOT NULL,  -- e.g., 'urn:permission' or 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/role'
+    ClaimValue NVARCHAR(250) NOT NULL, -- e.g., 'Create', 'Update'
+    CONSTRAINT PK_Claim PRIMARY KEY CLUSTERED (ClaimId),
+    CONSTRAINT UQ_Claim_Type_Value UNIQUE (ClaimType, ClaimValue)
+);
+
+-- Role-Based Claims (Inherited Authorization)
+CREATE TABLE dbo.RoleClaim (
+    RoleClaimID INT IDENTITY(1,1) NOT NULL,
+    RoleID INT NOT NULL,
+    ClaimID INT NOT NULL,
+    CONSTRAINT PK_RoleClaim PRIMARY KEY CLUSTERED (RoleClaimID),
+    CONSTRAINT FK_RoleClaim_Roles FOREIGN KEY (RoleID) REFERENCES dbo.Roles (RoleID) ON DELETE CASCADE,
+    CONSTRAINT FK_RoleClaim_Claim FOREIGN KEY (ClaimID) REFERENCES dbo.Claim (ClaimID) ON DELETE CASCADE,
+    CONSTRAINT UQ_RoleClaim_Role_Claim UNIQUE (RoleID, ClaimID)
+);
+CREATE NONCLUSTERED INDEX IX_RoleClaim_ClaimID ON dbo.RoleClaim(ClaimID);
+
+-- Direct User Claims (Explicit Overrides / Strict CBAC)
+CREATE TABLE dbo.UserClaim (
+    UserClaimID INT IDENTITY(1,1) NOT NULL,
+    UserID INT NOT NULL,
+    ClaimID INT NOT NULL,
+    CONSTRAINT PK_UserClaims PRIMARY KEY CLUSTERED (UserClaimId),
+    CONSTRAINT FK_UserClaims_User FOREIGN KEY (UserID) REFERENCES dbo.[User] (UserID) ON DELETE CASCADE,
+    CONSTRAINT FK_UserClaims_Claim FOREIGN KEY (ClaimID) REFERENCES dbo.Claim (ClaimID) ON DELETE CASCADE,
+    CONSTRAINT UQ_UserClaims_User_Claim UNIQUE (UserID, ClaimID)
+);
+CREATE NONCLUSTERED INDEX IX_UserClaim_ClaimID ON dbo.UserClaim(ClaimID);
+GO
+
+-- 1. Insert Roles
+INSERT INTO dbo.Roles ([Name], [Description]) VALUES 
+('Admin', 'System Administrator with full horizontal privileges.'),
+('Employee', 'Standard staff member with operational access.');
+
+-- 2. Insert Claim (Using uniform URN formatting for Type definitions)
+INSERT INTO dbo.Claim (ClaimType, ClaimValue) VALUES 
+('urn:action:permission', 'create'),
+('urn:action:permission', 'consult'),
+('urn:action:permission', 'update'),
+('urn:action:permission', 'delete');
+
+-- 3. Map Claims to Roles
+-- Admin mapping: Can create, consult, delete, update (All 4 claims)
+INSERT INTO dbo.RoleClaim (RoleID, ClaimID)
+SELECT r.RoleID, c.ClaimID
+FROM dbo.Roles r
+CROSS JOIN dbo.Claim c
+WHERE r.[Name] = 'Admin';
+
+-- Employee mapping: Can consult, create, update
+INSERT INTO dbo.RoleClaim (RoleID, ClaimID)
+SELECT r.RoleID, c.ClaimID
+FROM dbo.Roles r
+CROSS JOIN dbo.Claim c
+WHERE r.[Name] = 'Employee' 
+  AND c.ClaimValue IN ('create', 'consult', 'update');
 GO
 
 CREATE TABLE [dbo].[Supplier] (
@@ -177,10 +269,41 @@ CREATE TABLE dbo.PaymentMethod (
 );
 GO
 
+CREATE TABLE Customer (
+    CustomerID BIGINT IDENTITY(1,1) NOT NULL,
+    FirstName NVARCHAR(50) NOT NULL,
+    LastName NVARCHAR(50) NOT NULL,
+    
+    -- Nullable contact details
+    Email VARCHAR(256) NULL,
+    PhoneNumber VARCHAR(20) NULL,
+    
+    [Active] BIT NOT NULL CONSTRAINT DF_Customer_Active DEFAULT (1),
+    created_at DATETIMEOFFSET NOT NULL CONSTRAINT DF_Customer_created DEFAULT SYSDATETIMEOFFSET(),
+    updated_at DATETIMEOFFSET NULL,
+    
+    CONSTRAINT PK_customers PRIMARY KEY CLUSTERED (CustomerID)
+);
+
+-- FILTERED UNIQUE INDEXES (Handles Multiple NULLs safely)
+
+-- Enforces unique emails only for records where an email exists
+CREATE UNIQUE NONCLUSTERED INDEX UX_Customer_Email_Filtered
+ON Customer (Email)
+WHERE Email IS NOT NULL;
+GO;
+
+-- Enforces unique phone numbers only for records where a phone number exists
+CREATE UNIQUE NONCLUSTERED INDEX UX_Customer_Phone_Filtered
+ON Customer (PhoneNumber)
+WHERE PhoneNumber IS NOT NULL;
+GO;
+
 CREATE TABLE [dbo].[Sale](
 	[SaleID] BIGINT IDENTITY(1,1) NOT NULL,
 	[CreatedAt] DATETIME2(3) NOT NULL,
 	[UserID] INT NOT NULL,
+	[CustomerID] BIGINT NOT NULL,
 	[Customer] VARCHAR(50) NOT NULL,
 	[DiscountAmount] DECIMAL(18,4) NOT NULL,
 	[DiscountPercentage] DECIMAL(5,2) NOT NULL,
@@ -201,7 +324,8 @@ CREATE TABLE [dbo].[Sale](
 	CONSTRAINT [DF_Sale_Total] DEFAULT (0) FOR [Total],
 	CONSTRAINT [CK_Sale_Total] CHECK ([Total] >= 0),
 
-	CONSTRAINT [FK_User] FOREIGN KEY ([UserID]) REFERENCES [dbo].[User] ([UserID])
+	CONSTRAINT [FK_User] FOREIGN KEY ([UserID]) REFERENCES [dbo].[User] ([UserID]),
+	CONSTRAINT [FK_Customer] FOREIGN KEY ([CustomerID]) REFERENCES [dbo].[Customer] ([CustomerID])
 );
 GO
 

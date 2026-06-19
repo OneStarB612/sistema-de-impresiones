@@ -1,0 +1,43 @@
+﻿@*
+    For more information on enabling MVC for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
+*@
+@{
+}
+@using Web.Models;
+@model LoginVM
+
+
+
+<form asp-action="Login">
+
+
+    <div>
+
+        <label>Usuario</label>
+
+        <input asp-for="Username" />
+
+    </div>
+
+
+
+    <div>
+
+        <label>Password</label>
+
+        <input asp-for="Password"
+               type="password" />
+
+    </div>
+
+
+
+    <button type="submit">
+
+        Ingresar
+
+    </button>
+
+
+
+</form>
