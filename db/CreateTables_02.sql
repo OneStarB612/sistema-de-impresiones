@@ -16,14 +16,14 @@ CREATE TABLE dbo.GeoLevel (
     -- ('region', 'state', 'province', 'department', 'county', 'municipality', 'city', 'district', 'autonomous region')
     [Name] NVARCHAR(150) NOT NULL,
 
-    CONSTRAINT [PK_GeoType] PRIMARY KEY (GeoLevelID),
+    CONSTRAINT [PK_GeoLevel] PRIMARY KEY (GeoLevelID),
 );
 GO
 
 CREATE TABLE [dbo].[GeoDivision] (
     [GeoDivisionID] BIGINT IDENTITY(1,1) NOT NULL,
     [ParentID] BIGINT REFERENCES [GeoDivision]([GeoDivisionID]) ON DELETE NO ACTION,
-    [ÇountryCode] CHAR(2) NOT NULL REFERENCES [Country]([ISOAlpha2]),
+    [CountryCode] CHAR(2) NOT NULL REFERENCES [Country]([ISOAlpha2]),
     [GeoLevelID] INT NOT NULL,
     [ISOSubDivisionCode] VARCHAR(10), -- e.g., 'US-CA' for California, 'NI-MN' for Managua
     [Name] NVARCHAR(150) NOT NULL,
@@ -39,19 +39,14 @@ CREATE TABLE [dbo].[User] (
     UserID INT IDENTITY(1,1) NOT NULL,
     UserName NVARCHAR(150) NOT NULL,
     Email NVARCHAR(256) NOT NULL,
-    PasswordHash NVARCHAR(256) NOT NULL, -- Store salted hashes only
+    PasswordHash NVARCHAR(512) NOT NULL, -- Store salted hashes only
     [Active] BIT NOT NULL CONSTRAINT DF_Users_Active DEFAULT (1),
     CreatedAt DATETIME2(3) NOT NULL CONSTRAINT DF_Users_CreatedAt DEFAULT (SYSUTCDATETIME()),
-    CONSTRAINT PK_Users PRIMARY KEY CLUSTERED (UserId),
-    CONSTRAINT UQ_Users_Username UNIQUE (Username),
-    CONSTRAINT UQ_Users_Email UNIQUE (Email)
+    CONSTRAINT PK_User PRIMARY KEY CLUSTERED (UserId),
+    CONSTRAINT UQ_User_Username UNIQUE (Username),
+    CONSTRAINT UQ_Uses_Email UNIQUE (Email)
 );
 GO
-
--- 1. Insert User
-INSERT INTO dbo.[User] (UserName, Email, PasswordHash) VALUES 
-('Administrador', 'admincuenta@correo.com', '$2y$10$5fJtigakR1tWM2iw0QDTl.h9rrWFzMZjdmL4AWb2HdB81QN3iSUSi'),
-('Empleado1', 'empleadocuenta@correo.com', '$2y$10$KMduVkfbTIzVTOpbhlywTe6nfnmABGJpIn4BtL7XN3QSV4C7MCvny');
 
 CREATE TABLE dbo.Roles (
     RoleID INT IDENTITY(1,1) NOT NULL,
@@ -70,13 +65,6 @@ CREATE TABLE dbo.UserRoles (
     CONSTRAINT FK_UserRoles_Users FOREIGN KEY (UserID) REFERENCES dbo.[User] (UserID) ON DELETE CASCADE,
     CONSTRAINT FK_UserRoles_Roles FOREIGN KEY (RoleID) REFERENCES dbo.Roles (RoleID) ON DELETE CASCADE
 );
-CREATE NONCLUSTERED INDEX IX_UserRoles_RoleId ON dbo.UserRoles(RoleID);
-GO
-
-INSERT INTO dbo.UserRoles (UserID, RoleID)
-VALUES (1,1),
-(2,2);
-
 
 CREATE TABLE dbo.Claim (
     ClaimID INT IDENTITY(1,1) NOT NULL,
@@ -96,56 +84,23 @@ CREATE TABLE dbo.RoleClaim (
     CONSTRAINT FK_RoleClaim_Claim FOREIGN KEY (ClaimID) REFERENCES dbo.Claim (ClaimID) ON DELETE CASCADE,
     CONSTRAINT UQ_RoleClaim_Role_Claim UNIQUE (RoleID, ClaimID)
 );
-CREATE NONCLUSTERED INDEX IX_RoleClaim_ClaimID ON dbo.RoleClaim(ClaimID);
 
 -- Direct User Claims (Explicit Overrides / Strict CBAC)
 CREATE TABLE dbo.UserClaim (
     UserClaimID INT IDENTITY(1,1) NOT NULL,
     UserID INT NOT NULL,
     ClaimID INT NOT NULL,
-    CONSTRAINT PK_UserClaims PRIMARY KEY CLUSTERED (UserClaimId),
-    CONSTRAINT FK_UserClaims_User FOREIGN KEY (UserID) REFERENCES dbo.[User] (UserID) ON DELETE CASCADE,
-    CONSTRAINT FK_UserClaims_Claim FOREIGN KEY (ClaimID) REFERENCES dbo.Claim (ClaimID) ON DELETE CASCADE,
-    CONSTRAINT UQ_UserClaims_User_Claim UNIQUE (UserID, ClaimID)
+    CONSTRAINT PK_UserClaim PRIMARY KEY CLUSTERED (UserClaimId),
+    CONSTRAINT FK_UserClaim_User FOREIGN KEY (UserID) REFERENCES dbo.[User] (UserID) ON DELETE CASCADE,
+    CONSTRAINT FK_UserClaim_Claim FOREIGN KEY (ClaimID) REFERENCES dbo.Claim (ClaimID) ON DELETE CASCADE,
+    CONSTRAINT UQ_UserClaim_User_Claim UNIQUE (UserID, ClaimID)
 );
-CREATE NONCLUSTERED INDEX IX_UserClaim_ClaimID ON dbo.UserClaim(ClaimID);
-GO
-
--- 1. Insert Roles
-INSERT INTO dbo.Roles ([Name], [Description]) VALUES 
-('Admin', 'System Administrator with full horizontal privileges.'),
-('Employee', 'Standard staff member with operational access.');
-
--- 2. Insert Claim (Using uniform URN formatting for Type definitions)
-INSERT INTO dbo.Claim (ClaimType, ClaimValue) VALUES 
-('urn:action:permission', 'create'),
-('urn:action:permission', 'consult'),
-('urn:action:permission', 'update'),
-('urn:action:permission', 'delete');
-
--- 3. Map Claims to Roles
--- Admin mapping: Can create, consult, delete, update (All 4 claims)
-INSERT INTO dbo.RoleClaim (RoleID, ClaimID)
-SELECT r.RoleID, c.ClaimID
-FROM dbo.Roles r
-CROSS JOIN dbo.Claim c
-WHERE r.[Name] = 'Admin';
-
--- Employee mapping: Can consult, create, update
-INSERT INTO dbo.RoleClaim (RoleID, ClaimID)
-SELECT r.RoleID, c.ClaimID
-FROM dbo.Roles r
-CROSS JOIN dbo.Claim c
-WHERE r.[Name] = 'Employee' 
-  AND c.ClaimValue IN ('create', 'consult', 'update');
-GO
 
 CREATE TABLE [dbo].[Supplier] (
     [SupplierID] INT IDENTITY(1,1) NOT NULL,
     [Name] NVARCHAR(100) NOT NULL,
-    [ContactEmail] NVARCHAR(100) NULL,
-    [Active] BIT NOT NULL CONSTRAINT [DF_Suppliers_Active] DEFAULT (1) FOR [Active],
-    
+    [Email] NVARCHAR(100) NULL,
+    [Active] BIT NOT NULL CONSTRAINT [DF_Suppliers_Active] DEFAULT (1),
     
     CONSTRAINT [PK_Supplier] PRIMARY KEY ([SupplierID]),
     CONSTRAINT [UQ_Suppliers_Name] UNIQUE ([Name]),
@@ -155,39 +110,45 @@ CREATE TABLE [dbo].[Category](
 	[CategoryID] INT IDENTITY(1,1) NOT NULL,
 	[Name] NVARCHAR(25) NOT NULL,
 	[Description] NVARCHAR(80) NULL,
-	[Active] BIT NOT NULL CONSTRAINT [DF_User_Active] DEFAULT (1) FOR [Active],
-	
+	[Active] BIT NOT NULL CONSTRAINT [DF_User_Active] DEFAULT (1),
 	CONSTRAINT [PK_Category] PRIMARY KEY ([CategoryID]),
-	
+ );
+ GO
+
+CREATE TABLE [dbo].[Brand](
+	[BrandID] INT IDENTITY(1,1) NOT NULL,
+	[Name] NVARCHAR(25) NOT NULL,
+	[Description] NVARCHAR(80) NULL,
+	[Active] BIT NOT NULL CONSTRAINT [DF_User_Active] DEFAULT (1),
+	CONSTRAINT [PK_Brand] PRIMARY KEY ([BrandID]),
  );
  GO
 
  CREATE TABLE [dbo].[Material] (
     [MaterialID] INT IDENTITY(1,1) NOT NULL,
     [SKU] NVARCHAR(50) NOT NULL,
+    [BrandID] INT NOT NULL,
     [MaterialName] NVARCHAR(150) NOT NULL,
-    [MinimumStockLevel] DECIMAL(18,4) NOT NULL,
-    [CreatedAt] DATETIME2(3) NOT NULL,
+    [Color] NVARCHAR(100) NULL,
+    [MinimumStockLevel] DECIMAL(18,4) NOT NULL CONSTRAINT [DF_Material_MinStock] DEFAULT (0.0000),
+    [CreatedAt] DATETIME2(3) NOT NULL CONSTRAINT [DF_Material_CreatedAt] DEFAULT SYSUTCDATETIME(),
     
     CONSTRAINT [PK_Material] PRIMARY KEY CLUSTERED ([MaterialID]),
     CONSTRAINT [UQ_Material_SKU] UNIQUE ([SKU]),
     CONSTRAINT [CK_Material_MinStock] CHECK ([MinimumStockLevel] >= (0)),
-	CONSTRAINT [DF_Material_CreatedAt] DEFAULT SYSUTCDATETIME(),
-	CONSTRAINT [DF_Material_MinStock] DEFAULT (0.0000)
+    CONSTRAINT [FK_Material_Brand] FOREIGN KEY([BrandID]) REFERENCES [dbo].[Brand] ([BrandID])
 );
 
+
 CREATE TABLE dbo.MaterialInventory (
-    InventoryID INT IDENTITY(1,1) NOT NULL,
+    MaterialInventoryID INT IDENTITY(1,1) NOT NULL,
     MaterialID INT NOT NULL,
-    --StorageLocationCode NVARCHAR(50) NOT NULL, -- e.g., 'Aisle-04-Shelf-B'
     PackageCapacity DECIMAL(18,4) NOT NULL,   -- Amount a single brand-new box holds
     ClosedPackageCount INT NOT NULL CONSTRAINT DF_MaterialInventory_Closed DEFAULT (0),
     OpenPackageCount INT NOT NULL CONSTRAINT DF_MaterialInventory_Open DEFAULT (0),
     RemainingPercentage DECIMAL(5,2) NOT NULL CONSTRAINT DF_MaterialInventory_Percent DEFAULT (100.00),
     UpdatedAt DATETIME2(3) NOT NULL CONSTRAINT DF_MaterialInventory_UpdatedAt DEFAULT (SYSUTCDATETIME()),
 
-    -- Architectural Requirement: Computed Column applying the explicit mathematical formula
-    -- DRY Principle: Calculated at the database tier so client applications don't repeat logic.
     CurrentUsableStock AS CAST(
         (ClosedPackageCount * PackageCapacity) + 
         CASE 
@@ -199,45 +160,12 @@ CREATE TABLE dbo.MaterialInventory (
         AS DECIMAL(18,4)
     ),
 
-    CONSTRAINT PK_MaterialInventory PRIMARY KEY (InventoryID),
-    --CONSTRAINT UQ_MaterialInventory_MaterialLocation UNIQUE (MaterialID, StorageLocationCode),
+    CONSTRAINT PK_MaterialInventory PRIMARY KEY (MaterialInventoryID),
     CONSTRAINT FK_MaterialInventory_Materials FOREIGN KEY (MaterialID) REFERENCES dbo.Material (MaterialID),
     CONSTRAINT CK_MaterialInventory_PackageCapacity CHECK (PackageCapacity > 0),
     CONSTRAINT CK_MaterialInventory_Closed CHECK (ClosedPackageCount >= 0),
     CONSTRAINT CK_MaterialInventory_Open CHECK (OpenPackageCount >= 0),
     CONSTRAINT CK_MaterialInventory_Percentage CHECK (RemainingPercentage BETWEEN 0.00 AND 100.00)
-);
-
-CREATE TABLE [dbo].[Product](
-	[ProductID] INT IDENTITY(1,1) NOT NULL,
-	[Name] NVARCHAR(80) NOT NULL,
-	[Description] NVARCHAR(80) NULL,
-	[Active] BIT NOT NULL CONSTRAINT [DF_Product_Active] DEFAULT (1) FOR [Active],
-	[CategoryID] INT NULL,
-	[UnitPrice] DECIMAL(12,2) NULL CONSTRAINT [DF_Product_UnitPrice]  DEFAULT (0) FOR [UnitPrice],
-	[UnitCost] DECIMAL(12,2) NULL CONSTRAINT [DF_Product_UnitCost]  DEFAULT (0) FOR [UnitCost],
-	[Stock] INT NULL CONSTRAINT [DF_Product_Stock]  DEFAULT (0) FOR [Stock],
-	[Discontinued] BIT NOT NULL CONSTRAINT [DF_Product_Discontinued]  DEFAULT (0) FOR [Discontinued],
-	
-	CONSTRAINT [PK_Product] PRIMARY KEY ([ProductID]),
-	CONSTRAINT [CK_Product_UnitPrice] CHECK  ([UnitPrice] >= 0),
-	CONSTRAINT [CK_Product_UnitCost] CHECK  ([UnitCost] >= 0),
-	CONSTRAINT [CK_Product_Stock] CHECK  ([Stock] >= 0),
-
-	
-	CONSTRAINT [FK_Product_Category] FOREIGN KEY([CategoryID]) REFERENCES [dbo].[Category] ([CategoryID])
-
-);
-GO
-
-CREATE TABLE dbo.[Status] (
-    [StatusID] INT IDENTITY(1,1) NOT NULL,
-    [Name] VARCHAR(50) NOT NULL,
-    [Active] BIT NOT NULL CONSTRAINT [DF_Status_Active] DEFAULT (1) FOR [Active],
-    
-    CONSTRAINT PK_Status PRIMARY KEY  ([StatusID]),
-    CONSTRAINT UQ_Status_Name  UNIQUE([Name])
-
 );
 
 -- ISO 4217 Currency Definition Table
@@ -254,6 +182,39 @@ CREATE TABLE dbo.Currency (
     CONSTRAINT UQ_Currency_Numeric UNIQUE (NumericCode)
 );
 GO
+
+CREATE TABLE [dbo].[Product](
+	[ProductID] INT IDENTITY(1,1) NOT NULL,
+	[Name] NVARCHAR(80) NOT NULL,
+	[Description] NVARCHAR(80) NULL,
+	[Active] BIT NOT NULL CONSTRAINT [DF_Product_Active] DEFAULT (1),
+	[CategoryID] INT NULL,
+	[UnitPrice] DECIMAL(12,2) NULL CONSTRAINT [DF_Product_UnitPrice]  DEFAULT (0),
+	[UnitCost] DECIMAL(12,2) NULL CONSTRAINT [DF_Product_UnitCost]  DEFAULT (0),
+	CurrencyCode CHAR(3) NOT NULL,
+	[Stock] INT NULL CONSTRAINT [DF_Product_Stock]  DEFAULT (0),
+	[Discontinued] BIT NOT NULL CONSTRAINT [DF_Product_Discontinued]  DEFAULT (0),
+	
+	CONSTRAINT [PK_Product] PRIMARY KEY ([ProductID]),
+	CONSTRAINT [CK_Product_UnitPrice] CHECK  ([UnitPrice] >= 0),
+	CONSTRAINT [CK_Product_UnitCost] CHECK  ([UnitCost] >= 0),
+	CONSTRAINT [CK_Product_Stock] CHECK  ([Stock] >= 0),
+	CONSTRAINT FK_Product_Currency FOREIGN KEY (CurrencyCode) REFERENCES dbo.Currency(ISOAlpha3),
+	CONSTRAINT [FK_Product_Category] FOREIGN KEY([CategoryID]) REFERENCES [dbo].[Category] ([CategoryID])
+
+);
+GO
+
+
+CREATE TABLE dbo.[Status] (
+    [StatusID] INT IDENTITY(1,1) NOT NULL,
+    [Name] VARCHAR(50) NOT NULL,
+    [Active] BIT NOT NULL CONSTRAINT [DF_Status_Active] DEFAULT (1) FOR [Active],
+    
+    CONSTRAINT PK_Status PRIMARY KEY  ([StatusID]),
+    CONSTRAINT UQ_Status_Name  UNIQUE([Name])
+
+);
 
 -- Payment Methods Definition Table
 CREATE TABLE dbo.PaymentMethod (
@@ -279,49 +240,30 @@ CREATE TABLE Customer (
     PhoneNumber VARCHAR(20) NULL,
     
     [Active] BIT NOT NULL CONSTRAINT DF_Customer_Active DEFAULT (1),
-    created_at DATETIMEOFFSET NOT NULL CONSTRAINT DF_Customer_created DEFAULT SYSDATETIMEOFFSET(),
-    updated_at DATETIMEOFFSET NULL,
+    CreatedAt DATETIMEOFFSET NOT NULL CONSTRAINT DF_Customer_Created DEFAULT SYSUTCDATETIME(),
+    UpdatedAt DATETIMEOFFSET NULL,
     
-    CONSTRAINT PK_customers PRIMARY KEY CLUSTERED (CustomerID)
+    CONSTRAINT PK_Customer PRIMARY KEY (CustomerID)
 );
-
--- FILTERED UNIQUE INDEXES (Handles Multiple NULLs safely)
-
--- Enforces unique emails only for records where an email exists
-CREATE UNIQUE NONCLUSTERED INDEX UX_Customer_Email_Filtered
-ON Customer (Email)
-WHERE Email IS NOT NULL;
-GO;
-
--- Enforces unique phone numbers only for records where a phone number exists
-CREATE UNIQUE NONCLUSTERED INDEX UX_Customer_Phone_Filtered
-ON Customer (PhoneNumber)
-WHERE PhoneNumber IS NOT NULL;
-GO;
 
 CREATE TABLE [dbo].[Sale](
 	[SaleID] BIGINT IDENTITY(1,1) NOT NULL,
-	[CreatedAt] DATETIME2(3) NOT NULL,
+	[CreatedAt] DATETIME2(3) NOT NULL CONSTRAINT [DF_Sale_Create] DEFAULT sysutcdatetime(),
 	[UserID] INT NOT NULL,
 	[CustomerID] BIGINT NOT NULL,
-	[Customer] VARCHAR(50) NOT NULL,
-	[DiscountAmount] DECIMAL(18,4) NOT NULL,
-	[DiscountPercentage] DECIMAL(5,2) NOT NULL,
-	[TaxPercentage] DECIMAL(5,2) NOT NULL,
-	[TaxAmount] DECIMAL(18, 4) NOT NULL,
-	[CurrencyCode] NCHAR(3) NOT NULL,
-	[Total] DECIMAL(18,4),
+    CustomerName NVARCHAR(100),
+	[DiscountAmount] DECIMAL(18,4) NOT NULL CONSTRAINT [DF_Sale_DiscountAmount] DEFAULT (0),
+	[DiscountPercentage] DECIMAL(5,2) NOT NULL CONSTRAINT [DF_Sale_DiscountPercentage] DEFAULT (0),
+	[TaxPercentage] DECIMAL(5,2) NOT NULL CONSTRAINT [DF_Sale_TaxPercentage] DEFAULT (0),
+	[TaxAmount] DECIMAL(18, 4) NOT NULL CONSTRAINT [DF_Sale_TaxAmount] DEFAULT (0),
+	[CurrencyCode] CHAR(3) NOT NULL,
+	[Total] DECIMAL(18,4) CONSTRAINT [DF_Sale_Total] DEFAULT (0),
 	[Observation] VARCHAR(150) NULL,
 
 	CONSTRAINT [PK_Sale] PRIMARY KEY ([SaleID]),
-	CONSTRAINT [DF_Sale_CreatedAt] DEFAULT sysutcdatetime() FOR [CreatedAt],
-	CONSTRAINT [DF_Sale_DiscountPercentage] DEFAULT (0) FOR [DiscountPercentage],
 	CONSTRAINT [CK_Sale_DiscountPercentage] CHECK ([DiscountPercentage] >= 0),
-	CONSTRAINT [DF_Sale_DiscountAmount] DEFAULT (0) FOR [DiscountAmount],
 	CONSTRAINT [CK_Sale_DiscountAmount] CHECK ([DiscountAmount] >= 0),
-	CONSTRAINT [DF_Sale_TaxAmount] DEFAULT (0) FOR [TaxAmount],
 	CONSTRAINT [CK_Sale_TaxAmount] CHECK ([TaxAmount] >= 0),
-	CONSTRAINT [DF_Sale_Total] DEFAULT (0) FOR [Total],
 	CONSTRAINT [CK_Sale_Total] CHECK ([Total] >= 0),
 
 	CONSTRAINT [FK_User] FOREIGN KEY ([UserID]) REFERENCES [dbo].[User] ([UserID]),
@@ -333,27 +275,69 @@ CREATE TABLE [dbo].[SaleDetail] (
 	[SaleDetailID] BIGINT IDENTITY(1,1),
 	[SaleID] BIGINT NOT NULL,
 	[ProductID] INT NOT NULL,
-	[Quantity] INT NOT NULL,
+	[Quantity] INT NOT NULL CONSTRAINT [DF_Sale_Quantity] DEFAULT (0),
 	[UnitPrice] DECIMAL(18,4) NOT NULL,
-	[DiscountAmount] DECIMAL(18,4) NOT NULL,
-	[DiscountPercentage] DECIMAL(5,2) NOT NULL,
-	[TaxPercentage] DECIMAL(5,2) NOT NULL,
-	[TaxAmount] DECIMAL(18,4) NOT NULL,
-	[SubTotal] DECIMAL(18,4) NOT NULL,
+	[DiscountAmount] DECIMAL(18,4) NOT NULL CONSTRAINT [DF_SaleDetail_DiscountAmount] DEFAULT (0),
+	[DiscountPercentage] DECIMAL(5,2) NOT NULL CONSTRAINT [DF_SaleDetail_DiscountPercentage] DEFAULT (0),
+	[TaxPercentage] DECIMAL(5,2) NOT NULL CONSTRAINT [DF_SaleDetail_TaxPercentage] DEFAULT (0),
+	[TaxAmount] DECIMAL(18,4) NOT NULL CONSTRAINT [DF_SaleDetail_TaxAmount] DEFAULT (0),
+	[SubTotal] DECIMAL(18,4) NOT NULL CONSTRAINT [DF_SaleDetail_SubTotal] DEFAULT (0),
 
-	CONSTRAINT [PK_Sale] PRIMARY KEY ([SaleDetailID]),
-	CONSTRAINT [DF_Sale_DiscountPercentage] DEFAULT (0) FOR [DiscountPercentage],
-	CONSTRAINT [DF_Sale_DiscountAmount] DEFAULT (0) FOR [DiscountAmount],
-	CONSTRAINT [DF_Sale_Quantity] DEFAULT (0) FOR [Quantity],
-	CONSTRAINT [DF_Sale_TaxAmount] DEFAULT (0) FOR [TaxAmount],
-	CONSTRAINT [DF_Sale_SubTotal] DEFAULT (0) FOR [SubTotal],
-	CONSTRAINT [CK_Sale_DiscountPercentage] CHECK ([DiscountPercentage] >= 0),
-	CONSTRAINT [CK_Sale_DiscountAmount] CHECK ([DiscountAmount] >= 0),
-	CONSTRAINT [CK_Sale_Quantity] CHECK ([Quantity] >= 0),
-	CONSTRAINT [CK_Sale_TaxAmount] CHECK ([TaxAmount] >= 0),
-	CONSTRAINT [CK_Sale_SubTotal] CHECK ([SubTotal] >= 0),
+	CONSTRAINT [PK_SaleDetail] PRIMARY KEY ([SaleDetailID]),
+	CONSTRAINT [CK_SaleDetail_DiscountPercentage] CHECK ([DiscountPercentage] >= 0),
+	CONSTRAINT [CK_SaleDetail_DiscountAmount] CHECK ([DiscountAmount] >= 0),
+	CONSTRAINT [CK_SaleDetail_Quantity] CHECK ([Quantity] >= 0),
+	CONSTRAINT [CK_SaleDetail_TaxAmount] CHECK ([TaxAmount] >= 0),
+	CONSTRAINT [CK_SaleDetail_SubTotal] CHECK ([SubTotal] >= 0),
 
 	CONSTRAINT [FK_Sale] FOREIGN KEY ([SaleID]) REFERENCES [dbo].[Sale] ([SaleID])
+);
+GO
+CREATE TABLE dbo.[Purchase] (
+    PurchaseID BIGINT IDENTITY(1,1) NOT NULL,
+    CreatedAt DATETIME2(3) NOT NULL DEFAULT sysutcdatetime(),
+    [UserID] INT NOT NULL,
+    SupplierID INT NOT NULL,
+    [DiscountAmount] DECIMAL(18,4) NOT NULL CONSTRAINT [DF_Purchase_DiscountAmount] DEFAULT (0),
+	[DiscountPercentage] DECIMAL(5,2) NOT NULL CONSTRAINT [DF_Purchase_DiscountPercentage] DEFAULT (0),
+	[TaxPercentage] DECIMAL(5,2) NOT NULL CONSTRAINT [DF_Purchase_TaxPercentage] DEFAULT (0),
+	[TaxAmount] DECIMAL(18, 4) NOT NULL CONSTRAINT [DF_Purchase_TaxAmount] DEFAULT (0),
+	[CurrencyCode] CHAR(3) NOT NULL,
+	[Total] DECIMAL(18,4) CONSTRAINT [DF_Purchase_Total] DEFAULT (0),
+	[Observation] VARCHAR(150) NULL,
+
+	CONSTRAINT [PK_Purchase] PRIMARY KEY (PurchaseID),
+	CONSTRAINT [CK_Purchase_DiscountPercentage] CHECK ([DiscountPercentage] >= 0),
+	CONSTRAINT [CK_Purchase_DiscountAmount] CHECK ([DiscountAmount] >= 0),
+	CONSTRAINT [CK_Purchase_TaxAmount] CHECK ([TaxAmount] >= 0),
+	CONSTRAINT [CK_Purchase_Total] CHECK ([Total] >= 0),
+
+	CONSTRAINT [FK_Purchase_User] FOREIGN KEY ([UserID]) REFERENCES [dbo].[User] ([UserID]),
+	CONSTRAINT [FK_Supplier] FOREIGN KEY (SupplierID) REFERENCES [dbo].[Supplier] (SupplierID)
+);
+GO
+
+CREATE TABLE [dbo].[PurchaseDetail] (
+	[PurchaseDetailID] BIGINT IDENTITY(1,1),
+	[PurchaseID] BIGINT NOT NULL,
+	[MaterialID] INT NOT NULL,
+	[Quantity] INT NOT NULL CONSTRAINT [DF_Sale_Quantity] DEFAULT (0),
+	[UnitPrice] DECIMAL(18,4) NOT NULL,
+	[DiscountAmount] DECIMAL(18,4) NOT NULL CONSTRAINT [DF_PurchaseDetail_DiscountAmount] DEFAULT (0),
+	[DiscountPercentage] DECIMAL(5,2) NOT NULL CONSTRAINT [DF_PurchaseDetail_DiscountPercentage] DEFAULT (0),
+	[TaxPercentage] DECIMAL(5,2) NOT NULL CONSTRAINT [DF_PurchaseDetail_TaxPercentage] DEFAULT (0),
+	[TaxAmount] DECIMAL(18,4) NOT NULL CONSTRAINT [DF_PurchaseDetail_TaxAmount] DEFAULT (0),
+	[SubTotal] DECIMAL(18,4) NOT NULL CONSTRAINT [DF_PurchaseDetail_SubTotal] DEFAULT (0),
+
+	CONSTRAINT [PK_PurchaseDetail] PRIMARY KEY ([PurchaseDetailID]),
+	CONSTRAINT [CK_PurchaseDetail_DiscountPercentage] CHECK ([DiscountPercentage] >= 0),
+	CONSTRAINT [CK_PurchaseDetail_DiscountAmount] CHECK ([DiscountAmount] >= 0),
+	CONSTRAINT [CK_PurchaseDetail_Quantity] CHECK ([Quantity] >= 0),
+	CONSTRAINT [CK_PurchaseDetail_TaxAmount] CHECK ([TaxAmount] >= 0),
+	CONSTRAINT [CK_PurchaseDetail_SubTotal] CHECK ([SubTotal] >= 0),
+
+	CONSTRAINT [FK_Sale] FOREIGN KEY ([PurchaseID]) REFERENCES [dbo].[Sale] ([SaleID]),
+    CONSTRAINT [FK_Material] FOREIGN KEY ([MaterialID]) REFERENCES [dbo].Material ([MaterialID])
 );
 GO
 
@@ -366,7 +350,7 @@ CREATE TABLE dbo.SalePayment (
     AmountInPaymentCurrency DECIMAL(18, 4) NOT NULL, 
     AmountInSaleCurrency DECIMAL(18, 4) NOT NULL,  
     PaymentDate DATETIME2(3) NOT NULL CONSTRAINT DF_SalePayment_PaymentDate DEFAULT (SYSUTCDATETIME()),
-    --transaction_reference NVARCHAR(100) NULL,
+    TransactionReference NVARCHAR(100) NULL,
     
     CONSTRAINT PK_SalePayment PRIMARY KEY CLUSTERED (SalePaymentID),
     CONSTRAINT FK_SalePayment_Sale FOREIGN KEY ([SaleID]) REFERENCES Sale([SaleID]),
@@ -375,12 +359,12 @@ CREATE TABLE dbo.SalePayment (
     CONSTRAINT CHK_SalePayment_AMT CHECK (AmountInPaymentCurrency > 0)
 );
 
--- CREATE NONCLUSTERED INDEX IX_sales_payments_header ON SalePayment([SaleID]);
-
 CREATE TABLE dbo.Shipment (
     ShipmentID BIGINT IDENTITY(1,1) NOT NULL,
     [SaleID] BIGINT NOT NULL,
-    StatusID INT NOT NULL, 
+    StatusID INT NOT NULL,
+    PostalCode CHAR(25) NULL,
+    [Addres] NVARCHAR(256) NOT NULL,
     CostResponsibility VARCHAR(15) NOT NULL, 
     CurrencyCode CHAR(3) NOT NULL,
     ExchangeRateUsed DECIMAL(18, 6) NOT NULL CONSTRAINT DF_Shipment_Rate DEFAULT 1.000000,
@@ -395,9 +379,6 @@ CREATE TABLE dbo.Shipment (
     CONSTRAINT CHK_Shipment_Responsibility CHECK (CostResponsibility IN ('CUSTOMER', 'COMPANY'))
 );
 
---CREATE NONCLUSTERED INDEX IX_shipments_sales_header ON Shipment([SaleID]);
-
-
 CREATE TABLE ShipmentItem (
     ShipmentItemID BIGINT IDENTITY(1,1) NOT NULL,
     ShipmentID BIGINT NOT NULL,
@@ -409,5 +390,3 @@ CREATE TABLE ShipmentItem (
     CONSTRAINT FK_ShipmentItem_Detail FOREIGN KEY ([SaleDetailID]) REFERENCES dbo.[SaleDetail]([SaleDetailID]),
     CONSTRAINT CHK_ShipmentItem_Qty CHECK (quantity_shipped > 0)
 );
-
---CREATE NONCLUSTERED INDEX IX_shipment_items_shipment ON ShipmentItem(ShipmentID);
